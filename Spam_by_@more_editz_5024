@@ -1,0 +1,138 @@
+import time
+import threading
+import sys
+import os
+import webbrowser
+from concurrent.futures import ThreadPoolExecutor
+from colorama import Fore, Style
+
+# Colors setup
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+PURPLE = '\033[95m'
+CYAN = '\033[96m'
+WHITE = '\033[97m'
+BOLD = '\033[1m'
+RESET = '\033[0m'
+
+print(f"{CYAN}🔗 Opening Telegram channel...{RESET}")
+webbrowser.open("https://t.me/nomore231")
+time.sleep(2)
+
+try:
+    from instagrapi import Client
+except ImportError:
+    print(f"{YELLOW}📦 Installing instagrapi...{RESET}")
+    os.system("pip install instagrapi")
+    from instagrapi import Client
+
+class DecaAgentDestroyer:
+    def __init__(self):
+        self.clients = [Client() for _ in range(10)]  
+        self.running = False
+        self.total_count = 0
+        self.agent_counts = [0] * 10  
+        self.lock = threading.Lock()
+        self.successful_agents = 0
+        
+    def login_all_agents(self, username, password):
+        print(f"\n{BLUE}🔐 Initializing {len(self.clients)} DECA AGENTS...{RESET}")
+        successful = 0
+        for i in range(len(self.clients)):
+            try:
+                print(f"   {YELLOW}Agent {i+1} connecting...{RESET}", end="")
+                user_agent = f"Instagram 219.0.0.12.{117+i} Android Agent-{i+1}"
+                self.clients[i].set_user_agent(user_agent)
+                self.clients[i].login(username, password)
+                print(f" {GREEN}✅{RESET}")
+                successful += 1
+                if i < 9: time.sleep(10) # Safe delay
+            except Exception as e:
+                print(f" {RED}❌ Failed{RESET}")
+                if i < 9: time.sleep(10)
+        
+        self.successful_agents = successful
+        return successful > 0
+        
+    def find_group_thread(self):
+        try:
+            working_client = None
+            for client in self.clients:
+                try:
+                    threads = client.direct_threads()
+                    working_client = client
+                    break
+                except: continue
+            
+            if not working_client: return None, None
+            threads = working_client.direct_threads()
+            for thread in threads:
+                if len(thread.users) > 2:
+                    return (thread.thread_title or "Group Chat"), thread.id
+            return None, None
+        except: return None, None
+
+    def agent_worker(self, agent_id, thread_id, message):
+        local_count = 0
+        while self.running:
+            try:
+                result = self.clients[agent_id].direct_answer(thread_id=thread_id, text=message)
+                if result:
+                    local_count += 1
+                    with self.lock:
+                        self.agent_counts[agent_id] = local_count
+                        self.total_count += 1
+                time.sleep(0.15)
+            except:
+                time.sleep(2)
+
+    def group_destroy(self, group_name, thread_id, message):
+        self.running = True
+        print(f"{RED}🔥 DESTRUCTION STARTED ON: {group_name}{RESET}")
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            try:
+                for i in range(self.successful_agents):
+                    executor.submit(self.agent_worker, i, thread_id, message)
+                while self.running:
+                    time.sleep(5)
+                    print(f"{BLUE}📊 Sent: {self.total_count} | Speed: {self.total_count/(time.time()-start_time):.1f}/s{RESET}")
+            except KeyboardInterrupt:
+                self.running = False
+                print(f"\n{GREEN}Mission Finished. Total: {self.total_count}{RESET}")
+
+def main():
+    # --- Check/Create ram.txt ---
+    file_path = "ram.txt"
+    if not os.path.exists(file_path):
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("APNA SPAM MESSAGE YAHAN LIKHEIN")
+        print(f"{YELLOW}📁 'ram.txt' generate ho gayi hai. Usme message daal kar save karein aur script restart karein.{RESET}")
+        return
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        spam_content = f.read().strip()
+
+    if not spam_content:
+        print(f"{RED}❌ ram.txt khali hai! Pehle usme message likhein.{RESET}")
+        return
+
+    destroyer = DecaAgentDestroyer()
+    print(f"{CYAN}👤 Instagram Login Detail Daalein:{RESET}")
+    user = input("Username: ")
+    pw = input("Password: ")
+
+    if destroyer.login_all_agents(user, pw):
+        group_name, thread_id = destroyer.find_group_thread()
+        if thread_id:
+            print(f"\n{GREEN}Target Found: {group_name}{RESET}")
+            confirm = input(f"{RED}Type 'DESTROY' to start: {RESET}")
+            if confirm.upper() == 'DESTROY':
+                destroyer.group_destroy(group_name, thread_id, spam_content)
+        else:
+            print(f"{RED}Group nahi mila!{RESET}")
+
+if __name__ == "__main__":
+    main()
